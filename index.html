@@ -139,7 +139,7 @@ h1{font-size:28px;line-height:1.15;font-weight:800;letter-spacing:-.02em}
 .in.n{text-align:right;font-variant-numeric:tabular-nums}
 .in.bad{border-color:var(--red);box-shadow:0 0 0 3px var(--redsoft)}
 textarea.in{resize:vertical;min-height:72px;line-height:1.4}
-.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;align-items:end}
 .rem{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 0 4px;border-top:1px solid var(--line);margin-top:8px;flex-wrap:wrap}
 .rem span{font-size:16px;font-weight:600}
 .rem b{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;margin-left:auto}
@@ -172,6 +172,7 @@ textarea.in{resize:vertical;min-height:72px;line-height:1.4}
 .cli{display:grid;gap:12px}.cli .ct+.ct{border-top:1px solid var(--line);padding-top:12px}
 /* клиенты */
 .ct .nm{font-size:18px}
+.ct .cth{display:flex;justify-content:space-between;align-items:center;gap:8px}.ct .pe{opacity:.8}
 .ct .meta{margin:2px 0 10px}
 .acts{display:flex;flex-wrap:wrap;gap:8px}
 .act{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:12px;background:var(--bluesoft);color:var(--blue);font-weight:600;max-width:100%}
@@ -265,8 +266,10 @@ const P=new URLSearchParams(location.search);
 if(P.get('theme')==='d'||(!P.get('theme')&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.dataset.theme='d';
 const ic=(n,t)=>`<svg class="i"${t?` aria-label="${t}"`:' aria-hidden="true"'}><use href="#${n}"/></svg>`;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const rub=n=>(+n||0).toLocaleString('ru-RU',{maximumFractionDigits:0})+'\u00a0₽';
-const num=v=>+String(v).replace(/[^\d,.-]/g,'').replace(',','.')||0;
+const fmt=n=>(+n||0).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+const rub=n=>fmt(n)+'\u00a0₽';
+const MON=['eq','mo','pr','dc','paid'];
+const num=v=>Math.round((+String(v).replace(/[^\d,.-]/g,'').replace(',','.')||0)*100)/100;
 const ST=['Договор','Подготовка','Закупка','Поставка','Монтаж','Испытания и ПНР','Подготовка ИД','Согласование ИД','Сдача','Закрытие расчётов','Завершён','Приостановлен'];
 const STOP=11,DONE=10,TODAY=new Date(2026,9,21);
 const PEOPLE=['Иванов','Моисеенко','Герасимов','Родин'];
@@ -281,6 +284,8 @@ let OBJ=[
  mk('NF-007','Банк «Северный». Хранилище ценностей',STOP,'Иванов','Заказчик остановил финансирование',2400000,900000,1000000,'2026-09-11','г. Санкт-Петербург, Невский пр., 88','44/25','2025-11-12'),
  mk('NF-008','Музей истории города. Фондохранилище',0,'Родин','',5600000,2100000,0,'2026-11-25','г. Калуга, ул. Ленина, 3','03/26','2026-10-15'),
 ];
+[[245000.5,96400.15],[410000,187250.4],[1250000.75,520300.1],[85000,32400.9],[290000.25,118700],[210000,94300.65],[160000,61200.3],[380000,0]]
+ .forEach(([pr,dc],i)=>Object.assign(OBJ[i],{pr,dc}));
 const o3=OBJ[2];
 o3.feed=[
  {a:'Герасимов',t:'Сегодня, 14:20',x:'Охрана не пустила бригаду: пропуска не оформлены. Написал заместителю главврача, обещали до пятницы.'},
@@ -292,7 +297,7 @@ o3.cli=[
  {f:'Смирнов Павел',p:'Главный инженер',c:'ООО «Медицинский центр «Пример»',ph:'+7 (495) 640-12-30',em:'p.smirnov@primer-med.ru'},
 ];
 OBJ.forEach(o=>{if(!o.feed.length)o.feed=[{a:o.resp,t:'15 окт, 11:00',x:'Созвонились с заказчиком, сроки подтвердили.'}];if(!o.cli.length)o.cli=[{f:'Орлов Дмитрий',p:'Главный инженер',c:'ГБУЗ «'+o.name.split('.')[0].replace(/«|»/g,'')+'»',ph:'+7 (495) 111-22-33',em:'orlov@example.ru'}]});
-const total=o=>(+o.eq||0)+(+o.mo||0), rest=o=>Math.max(0,total(o)-(+o.paid||0));
+const total=o=>Math.round(((+o.eq||0)+(+o.mo||0)+(+o.pr||0)+(+o.dc||0))*100)/100, rest=o=>Math.max(0,total(o)-(+o.paid||0));
 const late=o=>{if(!o.due||rest(o)<=0)return 0;const d=Math.round((TODAY-new Date(o.due))/864e5);return d>0?d:0};
 const stc=st=>st===DONE?'done':st===STOP?'stop':'';
 const fd=s=>s?s.split('-').reverse().join('.'):'';
@@ -328,16 +333,16 @@ function head(){
    <button class="add" data-a="new">${ic('add')}Объект</button></div>`;
 }
 const filt=()=>{const q=S.q.trim().toLowerCase();return q?OBJ.filter(o=>(o.name+o.id+o.addr+o.resp).toLowerCase().includes(q)):OBJ};
-const LB={name:'Название',st:'Этап',resp:'Ответственный',block:'Что мешает',due:'Оплатить до',eq:'Оборудование',mo:'Монтаж',paid:'Получено'};
+const LB={name:'Название',st:'Этап',resp:'Ответственный',block:'Что мешает',due:'Оплатить до',eq:'Оборудование',mo:'Монтаж',pr:'Проектные работы',dc:'Исполнительная документация',paid:'Получено'};
 function pf(o,k){
-  const l=`<label for="p-${k}">${LB[k]}</label>`,m=v=>(+v||0).toLocaleString('ru-RU',{maximumFractionDigits:0});
+  const l=`<label for="p-${k}">${LB[k]}</label>`,m=fmt;
   if(k==='st')return l+`<select class="in" id="p-st" data-pk="st">${ST.map((s,i)=>`<option value="${i}"${i===o.st?' selected':''}>${s}</option>`).join('')}</select>`;
   if(k==='resp')return l+`<select class="in" id="p-resp" data-pk="resp">${PEOPLE.map(p=>`<option${p===o.resp?' selected':''}>${p}</option>`).join('')}</select>`;
   if(k==='due')return l+`<input class="in" id="p-due" data-pk="due" type="date" value="${o.due}">`;
-  if(['eq','mo','paid'].includes(k))return l+`<input class="in n" id="p-${k}" data-pk="${k}" inputmode="decimal" value="${m(o[k])}">`;
+  if(MON.includes(k))return l+`<input class="in n" id="p-${k}" data-pk="${k}" inputmode="decimal" value="${m(o[k])}">`;
   return l+`<input class="in" id="p-${k}" data-pk="${k}" value="${esc(o[k])}">`;
 }
-const pop=(o,k)=>`<div class="pop" role="dialog" aria-label="${k==='to'?'По договору':LB[k]}">${k==='to'?pf(o,'eq')+pf(o,'mo'):pf(o,k)}</div>`;
+const pop=(o,k)=>`<div class="pop" role="dialog" aria-label="${k==='to'?'По договору':LB[k]}">${k==='to'?pf(o,'eq')+pf(o,'mo')+pf(o,'pr')+pf(o,'dc'):pf(o,k)}</div>`;
 function placePop(){
   const P=document.querySelector('.pop');if(!P)return;const R=P.parentElement,C=[...R.querySelectorAll(`[data-e="${S.pe.k}"]`)].find(x=>x.offsetParent);
   if(C){const x=C.getBoundingClientRect().left-R.getBoundingClientRect().left;P.style.left=Math.max(0,Math.min(x-8,R.clientWidth-P.offsetWidth))+'px'}
@@ -379,12 +384,16 @@ function chain(o){
    <div class="cur"><b>${ST[st]}</b><span>${st===STOP?'':`${st+1} из 11`}<button class="pz ${st===STOP?'on':''}" data-st="${STOP}" title="${ST[STOP]}">${ic('pause',ST[STOP])}</button></span></div>
    <div class="bars">${ST.slice(0,11).map((s,i)=>`<button data-st="${i}" title="${s}" aria-label="${s}" class="${st!==STOP&&i<=st?'on':''} ${i===st?'now':''}" style="--c:var(--s${i})"><i></i></button>`).join('')}</div></section>`;
 }
-const fld=(k,l,v,o={})=>`<div class="fl"><label for="f-${k}">${l}${o.err?'<span class="err-t">Не сохранено</span>':''}</label>${o.ta?`<textarea class="in" id="f-${k}" data-k="${k}" rows="2" placeholder="${o.ph||''}">${esc(v)}</textarea>`:`<input class="in ${o.n?'n':''} ${o.err?'bad':''}" id="f-${k}" data-k="${k}" ${o.type?`type="${o.type}"`:''} ${o.n?'inputmode="decimal"':''} value="${esc(o.n?(+v||0).toLocaleString('ru-RU',{maximumFractionDigits:0}):v)}" placeholder="${o.ph||''}">`}</div>`;
+const fld=(k,l,v,o={})=>`<div class="fl"><label for="f-${k}">${l}${o.err?'<span class="err-t">Не сохранено</span>':''}</label>${o.ta?`<textarea class="in" id="f-${k}" data-k="${k}" rows="2" placeholder="${o.ph||''}">${esc(v)}</textarea>`:`<input class="in ${o.n?'n':''} ${o.err?'bad':''}" id="f-${k}" data-k="${k}" ${o.type?`type="${o.type}"`:''} ${o.n?'inputmode="decimal"':''} value="${esc(o.n?fmt(v):v)}" placeholder="${o.ph||''}">`}</div>`;
 function remHtml(o){const l=late(o);return `<span>Остаток</span><b>${rub(rest(o))}</b>${l?`<small class="od">${ic('clock')}Просрочка ${l}&nbsp;дн. · до ${fd(o.due)}</small>`:''}`}
+const cliForm=(c,i)=>`<form data-f="cli"${i!=null?` data-i="${i}"`:''}>
+     ${[['f','ФИО'],['p','Должность'],['c','Юрлицо'],['ph','Телефон','tel'],['em','Почта','email']].map(([k,l,t])=>`<div class="fl"><label for="c-${k}">${l}</label><input class="in" id="c-${k}" name="${k}" ${t?`type="${t}"`:''} ${k==='f'?'required':''} value="${esc(c[k])}"></div>`).join('')}
+     <div class="btns"><button class="pri">Сохранить</button><button type="button" class="sec" data-a="cli-x">Отмена</button>${i!=null?`<button type="button" class="sec" data-a="cli-del" data-i="${i}">Удалить</button>`:''}</div></form>`;
 function left(o){
   return `<section class="box"><h2>Деньги</h2>
     <div class="big" id="tot">${rub(total(o))}</div><small>Всего по договору</small>
     <div class="two">${fld('eq','Оборудование',o.eq,{n:1})}${fld('mo','Монтаж',o.mo,{n:1})}</div>
+    <div class="two">${fld('pr','Проектные работы',o.pr,{n:1})}${fld('dc','Исполнительная документация',o.dc,{n:1})}</div>
     <div class="two">${fld('paid','Получено',o.paid,{n:1,err:S.err})}${fld('due','Оплатить до',o.due,{type:'date'})}</div>
     <div class="rem" id="rem">${remHtml(o)}</div></section>
    <section class="box"><h2>Договор</h2><div class="two">${fld('dn','Номер',o.dn)}${fld('dd','Дата',o.dd,{type:'date'})}</div></section>
@@ -393,11 +402,9 @@ function left(o){
      <div class="fl"><label for="f-resp">Ответственный</label><select class="in" id="f-resp" data-k="resp">${PEOPLE.map(p=>`<option${p===o.resp?' selected':''}>${p}</option>`).join('')}</select></div>
      <div class="fl"><span class="lb"><label for="f-addr">Адрес</label>${o.addr?`<a href="https://yandex.ru/maps/?text=${encodeURIComponent(o.addr)}" target="_blank" title="На карте" style="display:flex;align-items:center;gap:4px">${ic('pin')}Карта</a>`:''}</span><textarea class="in" id="f-addr" data-k="addr" rows="2">${esc(o.addr)}</textarea></div>
    </section>
-   <section class="box"><h2>Клиенты</h2><div class="cli">`+o.cli.map(c=>`<article class="ct"><div class="nm">${esc(c.f)}</div><div class="meta">${esc([c.p,c.c].filter(Boolean).join(' · '))}</div>
+   <section class="box"><h2>Клиенты</h2><div class="cli">`+o.cli.map((c,i)=>S.editCli===i?cliForm(c,i):`<article class="ct"><div class="cth"><div class="nm">${esc(c.f)}</div><button class="pe" data-a="cli-e" data-i="${i}" title="Изменить">${ic('pen','Изменить')}</button></div><div class="meta">${esc([c.p,c.c].filter(Boolean).join(' · '))}</div>
    <div class="acts">${c.ph?`<a class="act" href="tel:${c.ph.replace(/[^\d+]/g,'')}" title="Позвонить">${ic('call','Позвонить')}<span>${esc(c.ph)}</span></a>`:''}${c.em?`<a class="act" href="mailto:${esc(c.em)}" title="Написать">${ic('mail','Написать')}<span>${esc(c.em)}</span></a>`:''}</div></article>`).join('')+
-   (S.addCli?`<form data-f="cli">
-     ${[['f','ФИО'],['p','Должность'],['c','Юрлицо'],['ph','Телефон','tel'],['em','Почта','email']].map(([k,l,t])=>`<div class="fl"><label for="c-${k}">${l}</label><input class="in" id="c-${k}" name="${k}" ${t?`type="${t}"`:''} ${k==='f'?'required':''}></div>`).join('')}
-     <div class="btns"><button class="pri">Сохранить</button><button type="button" class="sec" data-a="cli-x">Отмена</button></div></form>`
+   (S.addCli?cliForm({})
    :`<button class="ghost" data-a="cli-add">${ic('add')}Контакт</button>`)+`</div></section>`;
 }
 function feed(o){
@@ -427,7 +434,7 @@ app.addEventListener('click',e=>{
   if(ce){S.pe={id:ce.closest('.row').dataset.id,k:ce.dataset.e};return render()}
   if(S.pe){S.pe=null;render();if(!e.target.isConnected)return}
   const b=e.target.closest('[data-a],[data-open],[data-tab],[data-st]');if(!b)return;
-  if(b.dataset.open)return go({s:'card',id:b.dataset.open,tab:'obj',addCli:false});
+  if(b.dataset.open)return go({s:'card',id:b.dataset.open,tab:'obj',addCli:false,editCli:null});
   if(b.dataset.tab)return go({tab:b.dataset.tab});
   if(b.dataset.st){const o=cur(),n=+b.dataset.st;if(n===o.st)return;log(o,'Этап: '+ST[n]);o.st=n;render();scrollFeed();return say('Сохранено')}
   const a=b.dataset.a;
@@ -435,7 +442,9 @@ app.addEventListener('click',e=>{
   else if(a==='search'){S.search=!S.search;render();document.getElementById('q2')?.focus()}
   else if(a==='v-list')go({s:'list'});else if(a==='v-stages')go({s:'stages',pe:null});
   else if(a==='new'){const n=OBJ.length+1,id='NF-'+String(n).padStart(3,'0');OBJ.unshift({...mk(id,'Новый объект',0,PEOPLE[0],'',0,0,0,'','','',''),feed:[],cli:[]});go({s:'card',id,tab:'obj'})}
-  else if(a==='cli-add')go({addCli:true});else if(a==='cli-x')go({addCli:false});
+  else if(a==='cli-add')go({addCli:true,editCli:null});else if(a==='cli-x')go({addCli:false,editCli:null});
+  else if(a==='cli-e')go({editCli:+b.dataset.i,addCli:false});
+  else if(a==='cli-del'){const o=cur(),c=o.cli.splice(+b.dataset.i,1)[0];log(o,'Контакт удалён: '+c.f);S.editCli=null;render();say('Удалено')}
   else if(a==='retry'){S.err=false;render();say('Сохранено')}
 });
 app.addEventListener('input',e=>{
@@ -445,12 +454,12 @@ app.addEventListener('input',e=>{
 app.addEventListener('change',e=>{
   const pk=e.target.dataset.pk;
   if(pk){const o=OBJ.find(x=>x.id===(e.target.dataset.id||S.pe.id)),v=e.target.value;
-    o[pk]=pk==='st'?+v:['eq','mo','paid'].includes(pk)?num(v):v;
-    log(o,LB[pk]+': '+(pk==='st'?ST[o.st]:['eq','mo','paid'].includes(pk)?rub(o[pk]):pk==='due'?fd(v):v||'—'));
-    say('Сохранено');if(!S.pe||S.pe.k!=='to'){S.pe=null;render()}else e.target.value=o[pk].toLocaleString('ru-RU',{maximumFractionDigits:0});return}
+    o[pk]=pk==='st'?+v:MON.includes(pk)?num(v):v;
+    log(o,LB[pk]+': '+(pk==='st'?ST[o.st]:MON.includes(pk)?rub(o[pk]):pk==='due'?fd(v):v||'—'));
+    say('Сохранено');if(!S.pe||S.pe.k!=='to'){S.pe=null;render()}else e.target.value=fmt(o[pk]);return}
   const k=e.target.dataset.k;if(!k)return;const o=cur();
-  o[k]=['eq','mo','paid'].includes(k)?num(e.target.value):e.target.value;
-  if(['eq','mo','paid'].includes(k))e.target.value=o[k].toLocaleString('ru-RU',{maximumFractionDigits:0});
+  o[k]=MON.includes(k)?num(e.target.value):e.target.value;
+  if(MON.includes(k))e.target.value=fmt(o[k]);
   document.getElementById('tot').textContent=rub(total(o));document.getElementById('rem').innerHTML=remHtml(o);
   const lb=e.target.closest('.fl')?.querySelector('label')?.textContent.replace('Не сохранено','');
   log(o,lb+': '+(e.target.value||'—'));const F=document.getElementById('fl'),x=document.createElement('div');x.innerHTML=feed(o);F.replaceWith(x.querySelector('#fl'));scrollFeed();
@@ -464,7 +473,7 @@ app.addEventListener('keydown',e=>{
 app.addEventListener('submit',e=>{
   e.preventDefault();const f=e.target,o=cur();
   if(f.dataset.f==='note'){const x=f.querySelector('textarea').value.trim();if(!x)return;o.feed.unshift({a:'Демо',t:'Сейчас',x});render();scrollFeed();say('Добавлено')}
-  if(f.dataset.f==='cli'){const d=Object.fromEntries(new FormData(f));o.cli.push(d);log(o,'Контакт: '+d.f);S.addCli=false;render();say('Добавлено')}
+  if(f.dataset.f==='cli'){const d=Object.fromEntries(new FormData(f)),i=f.dataset.i;if(i!=null){o.cli[+i]=d;log(o,'Контакт изменён: '+d.f)}else{o.cli.push(d);log(o,'Контакт: '+d.f)}S.addCli=false;S.editCli=null;render();say(i!=null?'Сохранено':'Добавлено')}
 });
 
 render();
